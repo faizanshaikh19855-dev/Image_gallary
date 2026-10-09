@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Visual Gallery - Dynamic Watermarked Portfolio</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* Protection CSS rules */
+        .no-drag {
+            -webkit-user-drag: none;
+            -khtml-user-drag: none;
+            -moz-user-drag: none;
+            -o-user-drag: none;
+            user-drag: none;
+        }
+
+        .protected-img {
+            pointer-events: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Glassmorphism Effect */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Watermark Grid Background */
+        .watermark-pattern {
+            background-image: url("data:image/svg+xml,%3Csvg width='180' height='180' viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' fill='rgba(255,255,255,0.06)' font-size='12' font-family='sans-serif' font-weight='bold' text-anchor='middle' transform='rotate(-30 90 90)'%3EPROTECTED VIEW%3C/text%3E%3C/svg%3E");
+        }
+
+        /* Print protection */
+        @media print {
+            html, body {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <header class="sticky top-0 z-40 glass-panel border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                    <i class="fa-solid fa-shield-halved text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">VaultGallery</h1>
+                    <p class="text-xs text-slate-400 font-medium">Protected Media Viewer</p>
+                </div>
+            </div>
+
+            <!-- Mode Switcher -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-slate-900/80 p-1 rounded-xl border border-slate-800 flex items-center">
+                    <button id="btnModeVisitor" onclick="setMode('visitor')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center space-x-2 bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">
+                        <i class="fa-solid fa-eye text-xs"></i>
+                        <span>Visitor Mode</span>
+                    </button>
+                    <button id="btnModeAdmin" onclick="setMode('admin')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center space-x-2 text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-lock text-xs"></i>
+                        <span>Owner / Admin</span>
+                    </button>
+                </div>
+
+                <!-- Info Trigger -->
+                <button onclick="toggleProtectionModal(true)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition" title="Protection Info">
+                    <i class="fa-solid fa-circle-info text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col space-y-6">
+        
+        <!-- Disclaimer Banner -->
+        <div class="bg-slate-900/60 border border-indigo-500/20 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-slate-300">
+            <div class="flex items-center space-x-3">
+                <span class="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg shrink-0">
+                    <i class="fa-solid fa-lock"></i>
+                </span>
+                <p>
+                    <strong class="text-white">Active Protection Layer:</strong> Direct downloads, right-click context menus, image dragging, and standard screenshot shortcuts are restricted on this page.
+                </p>
+            </div>
+            <button onclick="toggleProtectionModal(true)" class="text-indigo-400 hover:text-indigo-300 font-medium whitespace-nowrap underline underline-offset-4">
+                Learn how it works
+            </button>
+        </div>
+
+        <!-- Controls Header: Upload, Search, Filters -->
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            
+            <!-- Category Tabs -->
+            <div id="categoryTabs" class="flex items-center space-x-2 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+                <button onclick="filterCategory('all')" class="category-btn active px-4 py-2 rounded-xl text-xs font-medium bg-indigo-600 text-white transition">All Works</button>
+                <button onclick="filterCategory('Photography')" class="category-btn px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 hover:bg-slate-800 transition">Photography</button>
+                <button onclick="filterCategory('Art')" class="category-btn px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 hover:bg-slate-800 transition">Digital Art</button>
+                <button onclick="filterCategory('Designs')" class="category-btn px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 hover:bg-slate-800 transition">Design</button>
+            </div>
+
+            <!-- Search and Action Bar -->
+            <div class="flex items-center space-x-3">
+                <div class="relative flex-1 md:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Search media..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+                </div>
+
+                <!-- Admin Upload Button -->
+                <button id="uploadTriggerBtn" onclick="openUploadModal()" class="hidden px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-lg shadow-emerald-600/20 transition flex items-center space-x-2 shrink-0">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Upload Image</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <!-- Dynamic Image Cards Rendered Here -->
+        </div>
+
+        <!-- Empty State View -->
+        <div id="emptyState" class="hidden py-24 flex flex-col items-center justify-center text-center">
+            <div class="p-4 bg-slate-900 rounded-full border border-slate-800 text-slate-600 mb-4">
+                <i class="fa-regular fa-image text-4xl"></i>
+            </div>
+            <h3 class="text-base font-semibold text-slate-300">No media found</h3>
+            <p class="text-xs text-slate-500 mt-1 max-w-sm">Try tweaking your search filter or switch to Admin mode to upload original images to the local store.</p>
+        </div>
+    </main>
+
+    <div id="uploadModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-indigo-400"></i>
+                    <h3 class="font-bold text-slate-100 text-sm">Upload New Media</h3>
+                </div>
+                <button onclick="closeUploadModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="uploadForm" onsubmit="handleUploadSubmit(event)" class="space-y-4">
+                <!-- Drag and Drop Zone -->
+                <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-950/50 flex flex-col items-center justify-center space-y-2">
+                    <i class="fa-solid fa-images text-3xl text-slate-500"></i>
+                    <p class="text-xs text-slate-300 font-medium">Click to select or drag & drop images here</p>
+                    <p class="text-[10px] text-slate-500">PNG, JPG, WEBP up to 10MB</p>
+                    <input type="file" id="fileInput" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)">
+                </div>
+
+                <!-- Preview Grid for Uploads -->
+                <div id="uploadPreviewList" class="flex items-center space-x-2 overflow-x-auto py-2"></div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Image Title</label>
+                    <input type="text" id="imgTitle" required placeholder="e.g. Sunset Over Horizon" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Category</label>
+                    <select id="imgCategory" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                        <option value="Photography">Photography</option>
+                        <option value="Art">Digital Art</option>
+                        <option value="Designs">Designs</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeUploadModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">Cancel</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg shadow-indigo-600/20">Add to Gallery</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="lightboxModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl hidden">
+        
+        <!-- Top Overlay Header -->
+        <div class="absolute top-0 inset-x-0 p-4 flex items-center justify-between z-20 bg-gradient-to-b from-black/80 to-transparent">
+            <div class="flex items-center space-x-3">
+                <span class="px-2.5 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full text-[10px] font-bold tracking-wider uppercase flex items-center space-x-1">
+                    <i class="fa-solid fa-lock text-[9px]"></i>
+                    <span>Protected Viewer</span>
+                </span>
+                <h4 id="lightboxTitle" class="text-xs font-semibold text-slate-200">Image Title</h4>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button onclick="zoomLightbox(1.2)" class="p-2 text-slate-400 hover:text-white bg-slate-900/60 rounded-xl border border-slate-800"><i class="fa-solid fa-magnifying-glass-plus text-xs"></i></button>
+                <button onclick="zoomLightbox(0.8)" class="p-2 text-slate-400 hover:text-white bg-slate-900/60 rounded-xl border border-slate-800"><i class="fa-solid fa-magnifying-glass-minus text-xs"></i></button>
+                <button onclick="resetLightboxZoom()" class="p-2 text-slate-400 hover:text-white bg-slate-900/60 rounded-xl border border-slate-800"><i class="fa-solid fa-rotate text-xs"></i></button>
+                <button onclick="closeLightbox()" class="p-2 text-slate-300 hover:text-white bg-red-600/80 hover:bg-red-600 rounded-xl transition ml-2"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+        </div>
+
+        <!-- Canvas Based Protected Render Container -->
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden p-4">
+            <!-- Dynamic Watermark Canvas Container -->
+            <div id="canvasWrapper" class="relative max-w-full max-h-full flex items-center justify-center select-none">
+                <canvas id="lightboxCanvas" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl transition-transform duration-200"></canvas>
+                
+                <!-- Transparent Overlay Guard Layer -->
+                <div class="absolute inset-0 z-10 watermark-pattern pointer-events-auto" oncontextmenu="return false;"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Controls Footer -->
+        <div class="absolute bottom-4 inset-x-0 flex justify-center items-center z-20">
+            <div class="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl px-4 py-2 flex items-center space-x-6 text-xs text-slate-400">
+                <button onclick="navigateLightbox(-1)" class="hover:text-white flex items-center space-x-1"><i class="fa-solid fa-chevron-left"></i> <span>Previous</span></button>
+                <span id="lightboxIndex" class="text-slate-500 font-mono">1 / 1</span>
+                <button onclick="navigateLightbox(1)" class="hover:text-white flex items-center space-x-1"><span>Next</span> <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="protectionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2 text-indigo-400">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <h3 class="font-bold text-slate-100 text-sm">Image Protection Architecture</h3>
+                </div>
+                <button onclick="toggleProtectionModal(false)" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                    <strong class="text-indigo-300 block mb-1">1. Transparent Overlay Canvas Layer</strong>
+                    <p class="text-slate-400">Images are rendered directly onto standard HTML5 `<canvas>` elements or beneath an absolute transparent overlay `<div>`. Standard user right-clicks or long-presses interact solely with the invisible top div.</p>
+                </div>
+
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                    <strong class="text-indigo-300 block mb-1">2. Event & Shortcut Suppression</strong>
+                    <p class="text-slate-400">Global keyboard hooks block `Ctrl+S`, `Cmd+S`, `Ctrl+U`, `F12`, and `PrintScreen` commands. Context menus (`contextmenu`) and drag operations (`dragstart`) are disabled across all components.</p>
+                </div>
+
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                    <strong class="text-indigo-300 block mb-1">3. Dynamic Canvas Watermarking</strong>
+                    <p class="text-slate-400">Watermark timestamps and owner signatures are rasterized into the canvas bitmap directly, ensuring any visual screen grabs retain copyright ownership markers.</p>
+                </div>
+
+                <div class="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-amber-300 text-[11px]">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                    <strong>Web Security Note:</strong> Client-side protection deters ~99% of general web users. True hardware screen-recording suppression requires specialized Digital Rights Management (DRM) or encrypted streaming (Widevine/FairPlay).
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="toggleProtectionModal(false)" class="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white transition">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="captureWarning" class="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center text-center p-6 hidden">
+        <div class="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 mb-4 animate-bounce">
+            <i class="fa-solid fa-shield-cat text-4xl"></i>
+        </div>
+        <h2 class="text-lg font-bold text-white mb-1">Screen Capture Detected</h2>
+        <p class="text-xs text-slate-400 max-w-sm mb-6">Media contents are hidden while screen capture or inspection shortcuts are invoked.</p>
+        <button onclick="hideCaptureWarning()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded-xl transition">Resume View</button>
+    </div>
+
+    <script>
+        // Default Sample Images (Data URLs or High-res Royalty Free Unsplash URLs)
+        const SAMPLE_IMAGES = [
+            {
+                id: 'sample_1',
+                title: 'Neon Cyberpunk Metropolis',
+                category: 'Art',
+                url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80',
+                date: '2026-02-10'
+            },
+            {
+                id: 'sample_2',
+                title: 'Nordic Mountain Reflection',
+                category: 'Photography',
+                url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+                date: '2026-02-12'
+            },
+            {
+                id: 'sample_3',
+                title: 'Minimalist 3D Geometry',
+                category: 'Designs',
+                url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80',
+                date: '2026-02-14'
+            },
+            {
+                id: 'sample_4',
+                title: 'Golden Hour Forest Trail',
+                category: 'Photography',
+                url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1000&q=80',
+                date: '2026-02-15'
+            }
+        ];
+
+        // App State Variables
+        let currentMode = 'visitor'; // 'visitor' or 'admin'
+        let galleryItems = [];
+        let activeCategory = 'all';
+        let searchQuery = '';
+        let currentLightboxIndex = 0;
+        let lightboxZoomScale = 1;
+        let pendingUploadFiles = [];
+
+        // IndexedDB Configuration for Persistent Local Image Storage
+        const DB_NAME = 'VaultGalleryDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'images';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function loadStoredImages() {
+            try {
+                const db = await openDB();
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    const stored = request.result;
+                    if (!stored || stored.length === 0) {
+                        // Populate with default samples on first load
+                        galleryItems = [...SAMPLE_IMAGES];
+                        saveSampleImagesToDB(galleryItems);
+                    } else {
+                        galleryItems = stored;
+                    }
+                    renderGallery();
+                };
+            } catch (err) {
+                console.warn('IndexedDB unavailable, falling back to sample array', err);
+                galleryItems = [...SAMPLE_IMAGES];
+                renderGallery();
+            }
+        }
+
+        async function saveSampleImagesToDB(items) {
+            try {
+                const db = await openDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                items.forEach(item => store.put(item));
+            } catch (err) {
+                console.error('Error seeding IndexedDB:', err);
+            }
+        }
+
+        async function addItemToDB(newItem) {
+            galleryItems.unshift(newItem);
+            renderGallery();
+            try {
+                const db = await openDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.put(newItem);
+            } catch (err) {
+                console.error('Error saving item to DB:', err);
+            }
+        }
+
+        async function removeItemFromDB(id) {
+            galleryItems = galleryItems.filter(item => item.id !== id);
+            renderGallery();
+            try {
+                const db = await openDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.delete(id);
+            } catch (err) {
+                console.error('Error deleting item from DB:', err);
+            }
+        }
+
+        function filterCategory(category) {
+            activeCategory = category;
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                if(btn.textContent.trim().toLowerCase().includes(category.toLowerCase()) || (category === 'all' && btn.textContent.includes('All'))) {
+                    btn.className = "category-btn active px-4 py-2 rounded-xl text-xs font-medium bg-indigo-600 text-white transition";
+                } else {
+                    btn.className = "category-btn px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 hover:bg-slate-800 transition";
+                }
+            });
+            renderGallery();
+        }
+
+        function handleSearch(val) {
+            searchQuery = val.toLowerCase();
+            renderGallery();
+        }
+
+        function getFilteredItems() {
+            return galleryItems.filter(item => {
+                const matchesCat = activeCategory === 'all' || item.category === activeCategory;
+                const matchesQuery = item.title.toLowerCase().includes(searchQuery);
+                return matchesCat && matchesQuery;
+            });
+        }
+
+        function renderGallery() {
+            const grid = document.getElementById('galleryGrid');
+            const emptyState = document.getElementById('emptyState');
+            const filtered = getFilteredItems();
+
+            grid.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = "group relative bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden hover:border-slate-700 transition duration-300 flex flex-col";
+
+                card.innerHTML = `
+                    <div class="relative w-full aspect-square bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightbox(${index})">
+                        <!-- Render Canvas Layer For Security -->
+                        <canvas id="thumb-canvas-${item.id}" class="w-full h-full object-cover no-drag protected-img"></canvas>
+                        
+                        <!-- Transparent Protection Overlay -->
+                        <div class="absolute inset-0 z-10 watermark-pattern pointer-events-auto" oncontextmenu="return false;"></div>
+
+                        <!-- Hover Visual Overlay -->
+                        <div class="absolute inset-0 z-20 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center space-x-2">
+                            <span class="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg transform translate-y-2 group-hover:translate-y-0 transition duration-300">
+                                <i class="fa-solid fa-expand text-xs"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 flex items-center justify-between border-t border-slate-800/60 bg-slate-900/90">
+                        <div class="truncate mr-2">
+                            <h4 class="text-xs font-semibold text-slate-200 truncate">${item.title}</h4>
+                            <span class="text-[10px] text-slate-500 font-medium">${item.category}</span>
+                        </div>
+                        ${currentMode === 'admin' ? `
+                            <button onclick="event.stopPropagation(); removeItemFromDB('${item.id}')" class="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition" title="Delete Image">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+
+                grid.appendChild(card);
+
+                // Render protected image on thumbnail canvas
+                drawProtectedCanvas(`thumb-canvas-${item.id}`, item.url, false);
+            });
+        }
+
+        function drawProtectedCanvas(canvasId, imgUrl, isLightbox = false, scale = 1) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+
+            img.onload = () => {
+                if (!isLightbox) {
+                    canvas.width = 400;
+                    canvas.height = 400;
+                    ctx.drawImage(img, 0, 0, 400, 400);
+
+                    // Dynamic Watermark Stamp
+                    ctx.save();
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+                    ctx.font = "bold 14px Inter, sans-serif";
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    ctx.rotate(-Math.PI / 6);
+                    ctx.textAlign = "center";
+                    ctx.fillText("VAULTGALLERY - PROTECTED", 0, 0);
+                    ctx.restore();
+                } else {
+                    // High Res Lightbox Rendering
+                    const maxWidth = window.innerWidth * 0.85;
+                    const maxHeight = window.innerHeight * 0.75;
+                    let w = img.width;
+                    let h = img.height;
+
+                    // Aspect ratio fit
+                    if (w > maxWidth) {
+                        h = (maxWidth / w) * h;
+                        w = maxWidth;
+                    }
+                    if (h > maxHeight) {
+                        w = (maxHeight / h) * w;
+                        h = maxHeight;
+                    }
+
+                    canvas.width = w * scale;
+                    canvas.height = h * scale;
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    // Multi-layer watermark pattern for Lightbox
+                    ctx.save();
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+                    ctx.font = `bold ${Math.max(16, Math.floor(canvas.width / 25))}px Inter, sans-serif`;
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    ctx.rotate(-Math.PI / 6);
+                    ctx.textAlign = "center";
+                    ctx.fillText("PROTECTED - DO NOT COPY", 0, -20);
+                    ctx.font = "12px Inter, sans-serif";
+                    ctx.fillText(`VIEW ONLY MODE • ${new Date().toLocaleDateString()}`, 0, 15);
+                    ctx.restore();
+                }
+            };
+            img.src = imgUrl;
+        }
+
+        function openLightbox(filteredIndex) {
+            const filtered = getFilteredItems();
+            if (!filtered[filteredIndex]) return;
+
+            currentLightboxIndex = filteredIndex;
+            lightboxZoomScale = 1;
+
+            const item = filtered[currentLightboxIndex];
+            document.getElementById('lightboxTitle').textContent = item.title;
+            document.getElementById('lightboxIndex').textContent = `${currentLightboxIndex + 1} / ${filtered.length}`;
+
+            document.getElementById('lightboxModal').classList.remove('hidden');
+            drawProtectedCanvas('lightboxCanvas', item.url, true, lightboxZoomScale);
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightboxModal').classList.add('hidden');
+        }
+
+        function navigateLightbox(step) {
+            const filtered = getFilteredItems();
+            let newIndex = currentLightboxIndex + step;
+            if (newIndex < 0) newIndex = filtered.length - 1;
+            if (newIndex >= filtered.length) newIndex = 0;
+            openLightbox(newIndex);
+        }
+
+        function zoomLightbox(factor) {
+            lightboxZoomScale *= factor;
+            lightboxZoomScale = Math.max(0.5, Math.min(lightboxZoomScale, 3.0));
+            const filtered = getFilteredItems();
+            const item = filtered[currentLightboxIndex];
+            if (item) {
+                drawProtectedCanvas('lightboxCanvas', item.url, true, lightboxZoomScale);
+            }
+        }
+
+        function resetLightboxZoom() {
+            lightboxZoomScale = 1;
+            zoomLightbox(1);
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            const btnVisitor = document.getElementById('btnModeVisitor');
+            const btnAdmin = document.getElementById('btnModeAdmin');
+            const uploadTriggerBtn = document.getElementById('uploadTriggerBtn');
+
+            if (mode === 'visitor') {
+                btnVisitor.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center space-x-2 bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center space-x-2 text-slate-400 hover:text-white";
+                uploadTriggerBtn.classList.add('hidden');
+            } else {
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center space-x-2 bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
+                btnVisitor.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center space-x-2 text-slate-400 hover:text-white";
+                uploadTriggerBtn.classList.remove('hidden');
+            }
+            renderGallery();
+        }
+
+        function toggleProtectionModal(show) {
+            const modal = document.getElementById('protectionModal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.remove('hidden');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.add('hidden');
+            pendingUploadFiles = [];
+            document.getElementById('uploadPreviewList').innerHTML = '';
+            document.getElementById('uploadForm').reset();
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            processUploadFiles(files);
+        }
+
+        function processUploadFiles(files) {
+            const previewList = document.getElementById('uploadPreviewList');
+            previewList.innerHTML = '';
+
+            files.forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    pendingUploadFiles.push(event.target.result);
+                    const img = document.createElement('img');
+                    img.src = event.target.result;
+                    img.className = "w-12 h-12 rounded-lg object-cover border border-slate-700";
+                    previewList.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function handleUploadSubmit(e) {
+            e.preventDefault();
+            const title = document.getElementById('imgTitle').value;
+            const category = document.getElementById('imgCategory').value;
+
+            if (pendingUploadFiles.length === 0) {
+                alert('Please select at least one image file.');
+                return;
+            }
+
+            pendingUploadFiles.forEach((fileUrl, index) => {
+                const newItem = {
+                    id: 'usr_' + Date.now() + '_' + index,
+                    title: pendingUploadFiles.length > 1 ? `${title} (${index + 1})` : title,
+                    category: category,
+                    url: fileUrl,
+                    date: new Date().toISOString().split('T')[0]
+                };
+                addItemToDB(newItem);
+            });
+
+            closeUploadModal();
+        }
+
+        // Drag & Drop event bindings
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-indigo-500', 'bg-indigo-500/10');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            processUploadFiles(Array.from(files));
+        });
+
+        function initProtectionGuards() {
+            // Disable global context menu (Right Click)
+            document.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                return false;
+            });
+
+            // Disable Image Dragging
+            document.addEventListener('dragstart', (e) => {
+                if (e.target.tagName === 'IMG' || e.target.tagName === 'CANVAS') {
+                    e.preventDefault();
+                }
+            });
+
+            // Key combination blocks: Ctrl+S, Cmd+S, Ctrl+U, Cmd+U, PrintScreen, F12
+            document.addEventListener('keydown', (e) => {
+                const key = e.key.toLowerCase();
+                if ((e.ctrlKey || e.metaKey) && (key === 's' || key === 'u' || key === 'p')) {
+                    e.preventDefault();
+                    showCaptureWarning();
+                }
+
+                // F12 or PrintScreen
+                if (e.key === 'F12' || e.key === 'PrintScreen') {
+                    e.preventDefault();
+                    showCaptureWarning();
+                }
+
+                // Escape key closes Lightbox
+                if (e.key === 'Escape') {
+                    closeLightbox();
+                    closeUploadModal();
+                    toggleProtectionModal(false);
+                }
+            });
+
+            // Clear Clipboard if PrintScreen is hit
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'PrintScreen') {
+                    navigator.clipboard.writeText('');
+                    showCaptureWarning();
+                }
+            });
+        }
+
+        function showCaptureWarning() {
+            document.getElementById('captureWarning').classList.remove('hidden');
+        }
+
+        function hideCaptureWarning() {
+            document.getElementById('captureWarning').classList.add('hidden');
+        }
+
+        window.onload = () => {
+            initProtectionGuards();
+            loadStoredImages();
+        };
+    </script>
+</body>
+</html>
